@@ -7,6 +7,7 @@ from bokeh.models import ColumnDataSource, ColorBar
 from bokeh.models import GeoJSONDataSource, LinearColorMapper
 from bokeh.plotting import figure
 from bokeh.transform import dodge
+from bokeh.layouts import gridplot
 import bokeh.palettes
 from dataprep.clean import clean_country
 from bokeh.palettes import brewer
@@ -189,7 +190,7 @@ geo_map.patches('xs','ys', source = geosource_countries,fill_color = {'field' :'
 #Specify figure layout.
 geo_map.add_layout(color_bar, 'below')
 
-show(geo_map)
-#show(fig1)
-#show(fig2)
+
+p = gridplot([[fig1, geo_map]])
+show(p)
 #show(fig3)
