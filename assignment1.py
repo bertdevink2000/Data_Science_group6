@@ -1,12 +1,15 @@
+import json
+
+import geopandas as gpd
 import pandas as pd
-import numpy as np
-import geopandas as gp
-from bokeh.io import output_file, output_notebook
-from bokeh.plotting import figure, show
-from bokeh.models import ColumnDataSource, FactorRange
+from bokeh.io import show, output_file
+from bokeh.models import ColumnDataSource, ColorBar
+from bokeh.models import GeoJSONDataSource, LinearColorMapper
+from bokeh.plotting import figure
 from bokeh.transform import dodge
-from bokeh.layouts import row, column, gridplot
-import datetime
+import bokeh.palettes
+from dataprep.clean import clean_country
+from bokeh.palettes import brewer
 
 dir = "assignment1_data/"
 year = "2021"
@@ -98,8 +101,7 @@ data_reviews = import_csvs(dir + "reviews_" + year)
 data_crashes = import_csvs(dir + "stats_crashes_" + year, "_overview")
 data_ratings = import_csvs(dir + "stats_ratings_" + year, "_overview")
 
-
-import_csvs(dir + "stats_ratings_" + year, "_country")
+data_countries = import_csvs(dir + "stats_ratings_" + year, "_country")
 
 #pd.set_option('display.max_columns', None)
 #pd.set_option('display.max_rows', None)
@@ -114,10 +116,6 @@ sales_count_weekperiods_cds = ColumnDataSource(sales_count_weekperiods)
 
 #Sales Volume Figure
 output_file("visualization.html", title="Placeholder")
-#output_notebook()
-
-#source = ColumnDataSource(data_ratings)
-
 
 fig1 = figure(title="Transaction count over time", x_axis_type="datetime", width=1900, x_axis_label="Date", y_axis_label="Transaction count")
 fig2 = figure(title="Transaction count over time", x_axis_type="datetime", width=1900, x_axis_label="Date", y_axis_label="Transaction count")
@@ -145,6 +143,53 @@ fig3.vbar(x=dodge("Period", 0.3, range=fig3.x_range), bottom=0, top="Total Trans
 fig3.legend.location = "top_left"
 fig3.y_range.start = 0
 
-show(fig1)
-show(fig2)
-show(fig3)
+#Geographical Development
+shapefile = 'countries_data/ne_110m_admin_0_countries.shp'
+
+#Read shapefile using Geopandas
+gdf = gpd.read_file(shapefile)[['ADMIN', 'ADM0_A3', 'geometry']]
+gdf.head()
+
+#Drop row corresponding to 'Antarctica'
+gdf = gdf.drop(gdf.index[159])
+gdf.columns = ['country', 'country_code', 'geometry']
+
+#Converting country labels to ISO 3
+cntrs = clean_country(data_countries[["Country", "Total Average Rating"]], "Country", output_format="alpha-3")
+cntrs.rename(columns={"Country_clean": "country_code"}, inplace=True)
+
+
+#Merging geopandas geometry and the data
+merged = gdf.merge(cntrs[["country_code", "Total Average Rating"]], left_on = "country_code", right_on = "country_code")
+
+json_countries = json.loads(merged[["country", "country_code", "geometry", "Total Average Rating"]].to_json())
+json_countries = json.dumps(json_countries)
+
+#Making the geopandas bokeh plot
+geosource_countries = GeoJSONDataSource(geojson = json_countries)
+palette = brewer['YlGnBu'][8]
+palette = palette[::-1]
+color_mapper = LinearColorMapper(palette = palette, low = 0, high = 5)
+
+tick_labels = {'0': '0', '1': '1', '2':'2', '3':'3', '4':'4', '5':'5'}
+
+#Create color bar.
+color_bar = ColorBar(color_mapper=color_mapper, label_standoff=8,width = 500, height = 20,
+border_line_color=None,location = (0,0), orientation = 'horizontal', major_label_overrides = tick_labels)
+
+#Create figure object.
+geo_map = figure(title = 'Stats per Country', plot_height = 600 , plot_width = 950, toolbar_location = None)
+geo_map.xgrid.grid_line_color = None
+geo_map.ygrid.grid_line_color = None
+
+#Add patch renderer to figure.
+geo_map.patches('xs','ys', source = geosource_countries,fill_color = {'field' :'Total Average Rating', 'transform' : color_mapper},
+          line_color = 'black', line_width = 0.25, fill_alpha = 1)
+
+#Specify figure layout.
+geo_map.add_layout(color_bar, 'below')
+
+show(geo_map)
+#show(fig1)
+#show(fig2)
+#show(fig3)
