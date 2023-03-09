@@ -64,8 +64,7 @@ def filter_sales(inputdf):  # refunds compleet wegfilteren. Zowel voor transacti
     return temp
 
 def count_transactions(inputdf):  # telt aantal transacties, gesplitst op Sku Id en totaal
-    temp = inputdf[inputdf["Transaction Type"].isin(["Charge", "Charged"])]
-    temp = temp[["Transaction Date", "Sku Id"]].value_counts(sort=False).copy()
+    temp = inputdf[["Transaction Date", "Sku Id"]].value_counts(sort=False).copy()
     temp = temp.unstack(fill_value=0).reset_index(level=0)
     temp["Total Transaction Count"] = temp["premium"] + temp["unlockcharactermanager"]
     temp["offset8"] = temp["Transaction Date"] + pd.DateOffset(
@@ -87,9 +86,9 @@ def convert_to_weekdays(inputdf):
     temp["temp"] = temp["Period"].copy()
     temp["temp"] = pd.to_datetime(temp["temp"]) + pd.DateOffset(days=1)
     temp.iloc[30, 5] = "2021-12-31"
-    temp["Period"] = temp["temp"].dt.strftime("%m-%d")
+    temp["Period"] = temp["temp"].dt.strftime("%d-%m")
     temp["temp"] = temp["temp"] - pd.DateOffset(days=6)
-    temp["Period"] = temp["temp"].dt.strftime("  %m-%d -\n") + temp["Period"]
+    temp["Period"] = temp["temp"].dt.strftime(" %d-%m-\n") + temp["Period"]
     temp = temp.drop("temp", axis=1)
 
     return temp
@@ -111,16 +110,14 @@ data_sales = import_csvs(dir + "sales_" + year, encoding="utf-8")
 data_sales["Transaction Date"] = pd.to_datetime(data_sales["Transaction Date"])
 data_sales.pop("Base Plan ID")
 data_sales.pop("Offer ID")
+sales_ddfive = data_sales[data_sales["Product id"] == "com.vansteinengroentjes.apps.ddfive"]# andere apps eruit filteren
+sales_norefunds = filter_sales(sales_ddfive)  # zonder refunds en zonder google fee
+sales_count = count_transactions(sales_norefunds)
+sales_count_weekperiods = convert_to_weekdays(sales_count)
 data_sales = clean_country(data_sales, "Buyer Country", output_format="alpha-3")
 data_sales.pop("Buyer Country")
 data_sales.rename(columns={"Buyer Country_clean": "Buyer Country"}, inplace=True)
 unique_dates = data_sales["Transaction Date"].unique()
-sales_ddfive = data_sales[
-    data_sales["Product id"] == "com.vansteinengroentjes.apps.ddfive"]  # andere apps eruit filteren
-sales_norefunds = filter_sales(
-    sales_ddfive)  # zonder refunds, originele dataset wel gehouden om later nog shit met refunds te kunnen doen
-sales_count = count_transactions(sales_norefunds)
-sales_count_weekperiods = convert_to_weekdays(sales_count)
 
 data_reviews = import_csvs(dir + "reviews_" + year)
 data_crashes = import_csvs(dir + "stats_crashes_" + year, "_overview")
@@ -152,13 +149,13 @@ fig1 = figure(title="Transaction count over time", x_axis_type="datetime", width
               y_axis_label="Transaction count")
 fig2 = figure(title="Transaction count over time", x_axis_type="datetime", width=1900, x_axis_label="Date",
               y_axis_label="Transaction count")
-fig3 = figure(title="Transaction count over time", sizing_mode="stretch_width", x_axis_label="Date",
+fig3 = figure(title="Transaction count over time", width=1300, x_axis_label="Date",
               y_axis_label="Transaction count", x_range=barplot_xrange)
 
-fig1.vbar(x="Transaction Date", bottom=0, top="premium", line_width=2, color='blue', legend_label="Premium",
+fig1.vbar(x="Transaction Date", bottom=0, top="premium", line_width=2, color='blue', legend_label="DM Tools",
           source=sales_count_cds)
-fig1.vbar(x="offset8", bottom=0, top="unlockcharactermanager", line_width=2, color='red', legend_label="Unlock",
-          source=sales_count_cds)
+fig1.vbar(x="offset8", bottom=0, top="unlockcharactermanager", line_width=2, color='red',
+          legend_label="Character Manager", source=sales_count_cds)
 fig1.vbar(x="offset16", bottom=0, top="Total Transaction Count", line_width=2, color='green', legend_label="Total",
           source=sales_count_cds)
 fig1.legend.location = "top_left"
@@ -166,10 +163,10 @@ fig1.y_range.start = 0
 fig1.x_range.start = sales_count["Transaction Date"][0] - pd.DateOffset(days=2)
 fig1.x_range.end = sales_count["Transaction Date"][len(sales_count["Transaction Date"]) - 1] + pd.DateOffset(days=3)
 
-fig2.vbar(x="Transaction Date", bottom=0, top="premium", line_width=2, color='blue', legend_label="Premium",
+fig2.vbar(x="Transaction Date", bottom=0, top="premium", line_width=2, color='blue', legend_label="DM Tools",
           source=sales_count_cds2)
-fig2.vbar(x="offset12", bottom=0, top="unlockcharactermanager", line_width=2, color='red', legend_label="Unlock",
-          source=sales_count_cds2)
+fig2.vbar(x="offset12", bottom=0, top="unlockcharactermanager", line_width=2, color='red',
+          legend_label="Character Manager", source=sales_count_cds2)
 fig2.line("Transaction Date", "Total Transaction Count", color="green", line_width=1, legend_label="Total",
           source=sales_count_cds2)
 fig2.legend.location = "top_left"
@@ -177,13 +174,17 @@ fig2.y_range.start = 0
 fig2.x_range.start = sales_count["Transaction Date"][0] - pd.DateOffset(days=2)
 fig2.x_range.end = sales_count["Transaction Date"][len(sales_count["Transaction Date"]) - 1] + pd.DateOffset(days=3)
 
-fig3.vbar(x=dodge("Period", -0.3, range=fig3.x_range), bottom=0, top="premium", width=0.25, color='blue',
-          legend_label="Premium", source=sales_count_weekperiods_cds)
-fig3.vbar(x=dodge("Period", 0.0, range=fig3.x_range), bottom=0, top="unlockcharactermanager", width=0.25, color='red',
-          legend_label="Unlock", source=sales_count_weekperiods_cds)
-fig3.vbar(x=dodge("Period", 0.3, range=fig3.x_range), bottom=0, top="Total Transaction Count", width=0.25,
-          color='green', legend_label="Total", source=sales_count_weekperiods_cds)
-fig3.legend.location = "top_left"
+fig3.line("Period", "Total Transaction Count", color="#78c679", line_width=2, legend_label="Total",
+          source=sales_count_weekperiods_cds)
+fig3.vbar(x=dodge("Period", -0.21, range=fig3.x_range), bottom=0, top="premium", width=0.35, color="#7fcdbb",
+          legend_label="DM Tools", source=sales_count_weekperiods_cds)
+fig3.vbar(x=dodge("Period", 0.21, range=fig3.x_range), bottom=0, top="unlockcharactermanager", width=0.35,
+          color="#1d91c0", legend_label="Character Manager", source=sales_count_weekperiods_cds)
+fig3.legend.location = "top_right"
+fig3.y_range.start = 0
+fig3.legend.orientation = "horizontal"
+fig3.legend.background_fill_alpha = 0
+fig3.legend.border_line_alpha = 0
 fig3.y_range.start = 0
 
 # Geographical Development
@@ -218,7 +219,8 @@ json_countries = set_date(datetime.date(2021, 12, 31))
 
 # Making the geopandas bokeh plot
 geosource_countries = GeoJSONDataSource(geojson=json_countries)
-palette = brewer['YlGnBu'][8]
+#palette = brewer['YlGnBu'][8]
+palette = brewer['YlGn'][8]
 palette = palette[::-1]
 color_mapper = LinearColorMapper(palette=palette, low=0, high = 300)
 
@@ -281,5 +283,5 @@ slider.on_change('value', update_map)
 geo_layout = column(slider, geo_map)
 
 # Generate the HTML
-p = column(fig1, geo_layout)
+p = column(fig3, geo_layout)
 show(p)
