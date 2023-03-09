@@ -50,15 +50,18 @@ def import_csvs(name, suffix="", encoding="utf-16"):
 
 
 def filter_sales(inputdf):  # refunds compleet wegfilteren. Zowel voor transaction count als hoeveelheid geld handig
-    # droplist = list()
-    # refunds = temp.loc[(temp["Transaction Type"] == "Charge refund") | (temp["Transaction Type"] == "Refund"), "Description"]
-    # for i in refunds:
-    #    index = temp[temp["Description"] == i].index
-    #    for j in index:
-    #        droplist.append(j)
+    temp = inputdf
+    droplist = list()
+    refunds = temp.loc[(temp["Transaction Type"] == "Charge refund") | (temp["Transaction Type"] == "Refund"), "Description"]
+    for i in refunds:
+       index = temp[temp["Description"] == i].index
+       for j in index:
+           droplist.append(j)
 
-    return inputdf[inputdf["Transaction Type"] != "Google fee"]
+    temp = temp.drop(droplist)
+    temp = temp[temp["Transaction Type"].isin(["Charge", "Charged"])]
 
+    return temp
 
 def count_transactions(inputdf):  # telt aantal transacties, gesplitst op Sku Id en totaal
     temp = inputdf[inputdf["Transaction Type"].isin(["Charge", "Charged"])]
@@ -217,11 +220,12 @@ json_countries = set_date(datetime.date(2021, 12, 31))
 geosource_countries = GeoJSONDataSource(geojson=json_countries)
 palette = brewer['YlGnBu'][8]
 palette = palette[::-1]
-color_mapper = LinearColorMapper(palette=palette)
+color_mapper = LinearColorMapper(palette=palette, low=0, high = 300)
 
 # Create color bar.
+tick_labels = {'0': '0','50':'50', '100':'100', '150':'150', '200':'200', '250':'250', '300':'300+'}
 color_bar = ColorBar(color_mapper=color_mapper, label_standoff=8, width=500, height=20,
-                     border_line_color=None, location=(0, 0), orientation='horizontal')
+                     border_line_color=None, location=(0, 0), orientation='horizontal', major_label_overrides=tick_labels)
 
 # Create figure object.
 geo_map = figure(title='Stats per Country', plot_height=600, plot_width=950, toolbar_location=None)
