@@ -228,7 +228,7 @@ geosource_countries_start = GeoJSONDataSource(geojson=json_countries_start)
 geosource_countries_end = GeoJSONDataSource(geojson=json_countries_end)
 palette = brewer['YlGn'][8]
 palette = palette[::-1]
-color_mapper_start = LinearColorMapper(palette=palette, nan_color='#d9d9d9')
+color_mapper_start = LinearColorMapper(palette=palette, nan_color='#d9d9d9',low=0, high=10)
 color_mapper_end = LinearColorMapper(palette=palette, low=0, high=300, nan_color='#d9d9d9')
 color_mapper_average_rating = LinearColorMapper(palette=palette, low=0, high=5, nan_color='#d9d9d9')
 
@@ -354,6 +354,7 @@ tooltips = [
 number_of_crashes_vs_ratings.add_tools(HoverTool(tooltips=tooltips, renderers=[hover_circles]))
 kpi_figure = column(number_of_crashes_vs_ratings)
 
-# Generate the HTML
+print(data_countries.loc[data_countries['Daily Average Rating'] < 4, ['country_code']].value_counts().nlargest(1))
 p = column(fig3, kpi_figure, geo_layout)
+# Generate the HTMLre, geo_layout)
 show(p)
